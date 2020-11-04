@@ -1,0 +1,285 @@
+# import
+from bs4 import BeautifulSoup
+from selenium import webdriver
+import time
+import sys
+import re
+import math
+import numpy  
+import pandas as pd  
+import xlwt
+import random
+import os  
+from selenium.webdriver.common.keys import Keys
+import urllib.request
+import urllib
+
+# input
+x = input('검색어를 입력하세요 : ')
+#cnt = int(input(' 몇 건을 검색할 것인가요? : '))
+last_date = input(' 언제까지 검색하실 건가요?(※해당 날짜 전날까지 검색합니다) : ')
+
+f_dir = input(' 파일이 저장될 경로만 쓰세요(기본경로 : c:\\temp\\ ) : ')
+if f_dir =='' :
+    f_dir = "c:\\temp\\"
+# 파일 경로 설정
+now = time.localtime()
+s = '%04d-%02d-%02d-%02d-%02d-%02d' % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
+r_last = '%04d%02d%02d' % (now.tm_year, now.tm_mon, now.tm_mday)
+
+os.makedirs(f_dir+s+'-'+'youtube'+'-'+x)
+os.chdir(f_dir+s+'-'+'youtube'+'-'+x)
+
+ff_name=f_dir+s+'-'+'youtube'+'-'+x+'\\'+s+'-'+'youtube'+'-'+x+'.txt'
+fc_name=f_dir+s+'-'+'youtube'+'-'+x+'\\'+s+'-'+'youtube'+'-'+x+'.csv'
+fx_name=f_dir+s+'-'+'youtube'+'-'+x+'\\'+s+'-'+'youtube'+'-'+x+'.xls'
+
+
+path = "c:/temp/chromedriver.exe"
+driver = webdriver.Chrome(path)
+
+driver.get('https://www.youtube.com/')
+
+time.sleep(random.randrange(2,5))  # 2 - 5 초 사이에 랜덤으로 시간 선택
+driver.maximize_window() # 화면 최대화
+time.sleep(2)
+
+element = driver.find_element_by_name("search_query")
+element.send_keys(x)
+element.submit()
+time.sleep(3)
+
+driver.find_element_by_xpath('//*[@id="container"]/ytd-toggle-button-renderer').click() # 필터클릭
+time.sleep(2)
+#driver.find_element_by_xpath('/html/body/ytd-app/div/ytd-page-manager/ytd-search/div[1]/ytd-two-column-search-results-renderer/div/ytd-section-list-renderer/div[1]/div[2]/ytd-search-sub-menu-renderer/div[1]/iron-collapse/div/ytd-search-filter-group-renderer[1]/ytd-search-filter-renderer[5]/a/div').click() 
+# <업로드 날짜> 올해 클릭
+#time.sleep(2)
+#driver.find_element_by_xpath('//*[@id="container"]/ytd-toggle-button-renderer').click() # 필터클릭
+#time.sleep(2)
+driver.find_element_by_xpath('/html/body/ytd-app/div/ytd-page-manager/ytd-search/div[1]/ytd-two-column-search-results-renderer/div/ytd-section-list-renderer/div[1]/div[2]/ytd-search-sub-menu-renderer/div[1]/iron-collapse/div/ytd-search-filter-group-renderer[5]/ytd-search-filter-renderer[2]/a/div/yt-formatted-string').click() 
+# <정렬> 업로드 날짜 클릭
+time.sleep(2)
+
+body = driver.find_element_by_css_selector('body') 
+for j in range(5) : # 이렇게 내렸다고 올려줘야지 구조가 바뀜 (ytd-item-section-renderer[n]/div[3]/ytd-video-renderer[i]/div[1]/div/div[1]/div/h3/a) 최대한 i가 20까지 셋팅되게끔
+    body.send_keys(Keys.PAGE_DOWN)    
+    time.sleep(1.5)
+
+for j in range(5) :
+    body.send_keys(Keys.PAGE_UP)
+    time.sleep(0.1)
+
+html = driver.page_source
+soup = BeautifulSoup(html, 'html.parser')
+content= soup.select('#root-container') # 광고 숫자를 세고 나서 ytd-video-renderer[n] 세팅(광고수 + 1)
+time.sleep(1)
+
+subject = [] # 제목
+h_tag = [] # 게시물별 해쉬태그 list
+h_tag1 = [] # 총 해쉬태그
+many = [] # 조회수
+date = [] # 날짜
+id = [] # 유투버
+pop = [] # 구독자 수
+url = [] # 게시물 주소
+# except로 에러나는 거 처리!!!
+
+n = len(content) + 1
+i = 1
+no = 1
+error = 1
+while True : 
+    try :
+        driver.find_element_by_xpath('/html/body/ytd-app/div/ytd-page-manager/ytd-search/div[1]/ytd-two-column-search-results-renderer/div/ytd-section-list-renderer/div[2]/ytd-item-section-renderer[%s]/div[3]/ytd-video-renderer[%s]/div[1]/div/div[1]/div/h3/a' % (n, i)).click()
+    except :
+        print('continue') # i가 20까지 가지 않고 19에서 끝나버리는 경우 처리
+        i = 1
+        n += 1
+        error += 1
+        if error == 5 : # 에러가 5번 나면 저장하고 끝냄
+            youtube_reple = pd.DataFrame()
+            youtube_reple['날짜']=date
+            youtube_reple['제목'] = subject
+            youtube_reple['조회수']=many
+            youtube_reple['해쉬태그']= h_tag1[:]
+            youtube_reple['유투버']=id
+            youtube_reple['구독자 수']=pop
+            youtube_reple['url'] = url
+            
+            # csv 형태로 저장하기
+            youtube_reple.to_csv(fc_name,encoding="utf-8-sig",index=False)
+
+            # 엑셀 형태로 저장하기
+            youtube_reple.to_excel(fx_name ,index=False)
+
+            print("\n") 
+            print("=" *100)
+            print("3.파일 저장 완료: txt 파일명 : %s " %ff_name)
+            print("4.파일 저장 완료: csv 파일명 : %s " %fc_name)
+            print("5.파일 저장 완료: xls 파일명 : %s " %fx_name)
+            print("=" *100)
+            driver.close()
+            break
+            
+#######################마지막날 되면 stop!!####################### 
+    else :
+        time.sleep(2)
+        html1 = driver.page_source
+        soup1 = BeautifulSoup(html1, 'html.parser')
+        time.sleep(1)
+        
+        try :
+            d = soup1.select_one('#info-contents #date yt-formatted-string').get_text().strip() # 게시일
+            date_set = d.split('.')
+            if int(date_set[1]) < 10 :
+                if int(date_set[2]) < 10 :
+                    last = date_set[0]+'0'+ date_set[1].strip()+ '0' + date_set[2].strip()
+                else :    
+                    last = date_set[0]+'0'+ date_set[1].strip()+date_set[2].strip()
+            else :    
+                if int(date_set[2]) < 10 :
+                    last = date_set[0]+'0'+ date_set[1].strip()+ '0' + date_set[2].strip()
+                else :
+                    last = date_set[0]+ date_set[1].strip()+date_set[2].strip()
+        except :
+            now = time.localtime()
+            last = '%04d%02d%02d' % (now.tm_year, now.tm_mon, now.tm_mday)
+            if last != r_last :
+                last = r_last
+        
+        
+        if last_date == last :
+            youtube_reple = pd.DataFrame()
+            youtube_reple['날짜']=date
+            youtube_reple['제목'] = subject
+            youtube_reple['조회수']=many
+            youtube_reple['해쉬태그']= h_tag1[:]
+            youtube_reple['유투버']=id
+            youtube_reple['구독자 수']=pop
+            youtube_reple['url'] = url
+            
+            # csv 형태로 저장하기
+            youtube_reple.to_csv(fc_name,encoding="utf-8-sig",index=False)
+
+            # 엑셀 형태로 저장하기
+            youtube_reple.to_excel(fx_name ,index=False)
+
+            print("\n") 
+            print("=" *100)
+            print("3.파일 저장 완료: txt 파일명 : %s " %ff_name)
+            print("4.파일 저장 완료: csv 파일명 : %s " %fc_name)
+            print("5.파일 저장 완료: xls 파일명 : %s " %fx_name)
+            print("=" *100)
+            driver.close()
+            break
+        
+#######################게시물 조회#######################
+        print('*' * 80)
+        print(' %s 번째 영상을 조회 중입니다!! ' % no)
+        print('*' * 80)
+        
+        f = open(ff_name, 'a',encoding='UTF-8')
+        f.write("\n")
+        f.write("------------------------------------------------------------------"+"\n")
+        
+        sub = soup1.find('h1', class_='title style-scope ytd-video-primary-info-renderer').get_text() # 제목
+        subject.append(sub)
+        f.write('제목 :'+ sub + "\n")
+        print('제목 :', sub)
+        
+        
+        h_tag = [] # 게시물 마다 해쉬 태그 리스트 초기화
+        hash_tag = soup1.find('yt-formatted-string', class_='super-title style-scope ytd-video-primary-info-renderer').find_all('a') # 'a' 태그 안에 해쉬 태그
+        f.write('해쉬태그 : ')
+        print('해쉬태그 : ', end = '')
+        for j in hash_tag :
+            f.write(j.get_text() + ' ')
+            print(j.get_text(), end = ' ')
+            h_tag.append(j.get_text())
+        f.write('\n')
+        print()
+        h_tag1.append(h_tag) # 해쉬태그 각각 게시물 해쉬태그를 리스트로 집어넣는다(그래야 게시물별로 분류가 됨) 2차 list 구조
+
+        m = soup1.find('span', class_='view-count style-scope yt-view-count-renderer').get_text() # 조회수
+        many.append(m[4:-1].replace(',', '')) # 숫자만 넣기
+        print(m.replace(' ', ' : '))
+        f.write('조회수 : '+ m[4:-1].replace(',', '') + "\n")
+        #print(m[4:-1].replace(',', ''))
+        
+        try :
+            d = soup1.select_one('#info-contents #date yt-formatted-string').get_text().strip() # 게시일
+            date_set = d.split('.')
+            err=int(date_set[1]) + 1
+            print('게시일 :', d)
+            if int(date_set[1]) < 10 :
+                if int(date_set[2]) < 10 :
+                    last = date_set[0]+'0'+ date_set[1].strip()+ '0' + date_set[2].strip()
+                    f.write('게시일 : '+ last + "\n")
+                    date.append(last)
+                    r_last = last
+                else :    
+                    last = date_set[0]+'0'+ date_set[1].strip()+date_set[2].strip()
+                    f.write('게시일 : '+ last + "\n")
+                    date.append(last)
+                    r_last = last
+            else :
+                if int(date_set[2]) < 10 :
+                    last = date_set[0]+'0'+ date_set[1].strip()+ '0' + date_set[2].strip()
+                    f.write('게시일 : '+ last + "\n")
+                    date.append(last)
+                    r_last = last
+                    #print(last)
+                else :
+                    last = date_set[0]+ date_set[1].strip()+date_set[2].strip()
+                    f.write('게시일 : '+ last + "\n")
+                    date.append(last)
+                    r_last = last
+                    #print(last)
+        except :
+            now = time.localtime()
+            s = '%04d%02d%02d' % (now.tm_year, now.tm_mon, now.tm_mday)
+            if s != r_last :
+                s = r_last
+            f.write('게시일 : '+ s + "\n")
+            date.append(s)
+            print('게시일 : %s. %s. %s' % (s[:4], s[4:6], s[6:8]))
+        
+        youtuber = soup1.select_one('#meta-contents #upload-info a').get_text() # 유투버
+        id.append(youtuber)
+        f.write('유투버 :'+ youtuber + "\n")
+        print('유투버 :', youtuber)
+        
+        popular = soup1.select_one('#meta-contents #owner-sub-count').get_text() # 구독자 수
+        pop.append(popular[4:])
+        f.write(popular.replace(' ', ' : ') + "\n")
+        print(popular.replace(' ', ' : '))
+        
+        current_url = driver.current_url # 현재 페이지 url
+        print('현재 페이지 주소 : ', current_url)
+        url.append(current_url)
+        f.write('url :'+ current_url + "\n")
+        
+        f.close()
+        
+        
+        i += 1
+        no += 1
+        driver.back()
+        time.sleep(1.5)
+        if no % 20 == 0 :
+            for j in range(6) : # 이렇게 내렸다고 올려줘야지 구조가 바뀜 (ytd-item-section-renderer[%s]/div[3]/ytd-video-renderer[%s]/div[1]/div/div[1]/div/h3/a)
+                body.send_keys(Keys.PAGE_DOWN)    
+                time.sleep(1.5)
+                if j == 4 :
+                    time.sleep(3)
+                
+            for j in range(6) :
+                body.send_keys(Keys.PAGE_UP)
+                time.sleep(0.1)
+            time.sleep(1)
+        
+        if i == 21 :
+            i = 1
+            n += 1
+        
+        
