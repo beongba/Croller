@@ -1,0 +1,154 @@
+import os
+import sys
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+import time
+import datetime
+import pandas as pd
+# =================================== 저장 공간 Setting =================================================
+query_txt = 'investing'
+f_dir=input(' 파일이 저장될 경로만 쓰세요(기본경로 : c:\\jupyter_work\\ ) : ')
+if f_dir =='' :
+        f_dir = "c:\\jupyter_work\\"
+
+now = time.localtime()
+s = '%04d-%02d-%02d-%02d-%02d-%02d' % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
+
+os.chdir(f_dir)
+img_dir = f_dir+s+'-'+query_txt
+os.makedirs(img_dir)
+os.chdir(f_dir+s+'-'+query_txt)
+
+f_name=f_dir+s+'-'+query_txt+'\\'+s+'-'+query_txt+'.txt'
+fc_name=f_dir+s+'-'+query_txt+'\\'+s+'-'+query_txt+'.csv'
+
+# =================================== 함수 정의 =================================================
+def scroll_down(driver): # 스크롤 다운
+    body = driver.find_element_by_css_selector('body')
+    body.send_keys(Keys.PAGE_DOWN)
+    time.sleep(0.5) 
+
+def click(address) : # 클릭
+    global driver
+    driver.find_element_by_xpath(address).click()
+    time.sleep(2.5)
+    return
+
+def log_delete(driver) :
+    try :
+        click('/html/body/div[7]/div[2]/i') # 로그인 화면 클릭
+        time.sleep(1)
+    except :
+        pass
+
+def add_delete(driver) : # 광고 제거
+    try :
+        driver.find_element_by_xpath('/html/body/div[11]/div/div[4]/button[1]').click() # '나중에' 클릭
+    except :
+        pass
+    else :
+        time.sleep(0.5)
+
+    try :
+        driver.find_element_by_xpath('/html/body/div[9]/img').click() # 해외선물 광고 X 클릭
+    except :
+        pass
+    else :
+        time.sleep(0.5)
+    
+    try :
+        driver.find_element_by_xpath('//*[@id="closeBtn"]').click() # 동영상 광고 X 클릭
+    except :
+        pass
+    else :
+        time.sleep(0.5)
+
+def pasing(title, n, s) : 
+    global driver
+    global f_name
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+    news = soup.select('#leftColumn > #latestNews > div.largeTitle > article > div.textDiv > a')
+
+    print('%s을(를) 조회합니다.' % title)
+    n.append(title)
+    s.append(' ')
+    f = open(f_name, 'a', encoding='UTF-8')
+    f.write('%s을(를) 조회합니다.' % title)
+    f.write("\n")
+    for i in range(len(news)) :
+        article = news[i].get_text()
+        print('%d. %s' % ((i+1), article))
+        
+        f.write('%d. %s' % ((i+1), article))
+        f.write("\n")
+        n.append(i+1)
+        s.append(article)
+    
+    f.write("="*30)
+    f.write("\n")
+    f.close
+    print('\n')
+
+#=================================== 실행 구간 =================================================
+path = "c:/temp/chromedriver.exe"
+driver = webdriver.Chrome(path)
+url = 'https://kr.investing.com/'
+driver.get(url)
+driver.set_page_load_timeout(20)
+driver.maximize_window()
+time.sleep(5)
+
+num1 = []
+subject1 = []
+while True :
+    try :
+        click('/html/body/div[5]/header/div[2]/nav[1]/ul/li[4]/a') # 뉴스 클릭
+    except :
+        print('뉴스 탭이 클릭되지 않아 다시 시도합니다.')
+        log_delete(driver)
+    else :
+        break
+try :
+    add_delete(driver)
+except :
+    log_delete(driver)
+    time.sleep(1)
+    add_delete(driver)
+
+scroll_down(driver)
+pasing('최신뉴스', num1, subject1)
+while True :
+    try :    
+        click('/html/body/div[5]/section/div[6]/ul/li[2]/a') # 가장 인기있는 뉴스
+    except :
+        log_delete(driver)
+    else :
+        pasing('가장 인기있는 뉴스', num1, subject1)
+        add_delete(driver)
+        break
+while True :
+    try:
+        click('/html/body/div[5]/section/div[6]/ul/li[3]/a') # 경제 뉴스
+    except :
+        log_delete(driver)
+    else :    
+        pasing('경제 뉴스', num1, subject1)
+        add_delete(driver)
+        break
+
+driver.close()
+print('finish')
+
+final = pd.DataFrame()  ###
+final['번호']=num1
+final['제목']=subject1
+print(final)
+
+# csv 형태로 저장하기
+final.to_csv(fc_name,encoding="utf-8-sig",index=False)
+print('='*80)
+print("파일 저장 완료: txt 파일명 : %s " %f_name)
+print("파일 저장 완료: csv 파일명 : %s " %fc_name)
+print('='*80)
