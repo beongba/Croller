@@ -1,0 +1,291 @@
+#Step 1. 필요한 모듈과 라이브러리를 로딩합니다.
+from bs4 import BeautifulSoup
+from selenium import webdriver
+import time
+import pandas as pd    
+import os
+import math
+import urllib.request
+import urllib
+
+#Step 2. 사용자에게 검색어 키워드를 입력 받습니다.
+print("=" *80)
+print(" 쿠팡 사이트의 식품 카테고리 Best Seller 상품 정보 추출하기 ")
+print("=" *80)
+
+cnt = int(input('1.크롤링 할 건수는 몇건입니까?: '))
+page_cnt = math.ceil(cnt/60)
+
+f_dir = input("2.파일을 저장할 폴더명만 쓰세요(기본경로:c:\\temp\\):")
+if f_dir == '' :
+    f_dir = "c:\\temp\\"
+    
+print("\n")
+
+if cnt > 30 :
+      print("    요청 건수가 많아서 시간이 제법 소요되오니 잠시만 기다려 주세요~~")
+else :
+      print("    요청하신 데이터를 수집하고 있으니 잠시만 기다려 주세요~~")
+
+#Step 3.저장될 파일 경로와 이름을 지정합니다
+sec_name = '식품'
+query_txt='쿠팡'
+
+n = time.localtime()
+s = '%04d-%02d-%02d-%02d-%02d-%02d' % (n.tm_year, n.tm_mon, n.tm_mday, n.tm_hour, n.tm_min, n.tm_sec)
+
+os.makedirs(f_dir+s+'-'+query_txt+'-'+sec_name)
+os.chdir(f_dir+s+'-'+query_txt+'-'+sec_name)
+
+ff_dir=f_dir+s+'-'+query_txt+'-'+sec_name
+ff_name=f_dir+s+'-'+query_txt+'-'+sec_name+'\\'+s+'-'+query_txt+'-'+sec_name+'.txt'
+fc_name=f_dir+s+'-'+query_txt+'-'+sec_name+'\\'+s+'-'+query_txt+'-'+sec_name+'.csv'
+fx_name=f_dir+s+'-'+query_txt+'-'+sec_name+'\\'+s+'-'+query_txt+'-'+sec_name+'.xls'
+
+# 제품 이미지 저장용 폴더 생성
+img_dir = ff_dir+"\\images"
+os.makedirs(img_dir)
+os.chdir(img_dir)
+    
+s_time = time.time( )
+
+#Step 4. 웹사이트 접속 후 해당 메뉴로 이동합니다.
+chrome_path = "c:/temp/chromedriver.exe"
+driver = webdriver.Chrome(chrome_path)
+query_url='https://www.coupang.com/'
+driver.get(query_url)
+time.sleep(5)
+
+# 분야별 더보기 버튼을 눌러 페이지를 엽니다
+driver.find_element_by_xpath("""//*[@id="header"]/div""").click( )
+driver.find_element_by_xpath("""//*[@id="gnbAnalytics"]/ul[1]/li[4]/a""").click( )
+
+#Step 5. 내용을 수집합니다
+print("\n")
+print("===== 곧 수집된 결과를 출력합니다 ^^ ===== ")
+print("\n")
+
+ranking2=[]        #1.제품의 판매순위 저장
+title2=[]          #2.제품 정보 저장
+p_price2=[]        #3.현재 판매가 저장
+o_price2=[]        #4.원래 판매가 저장 
+discount2 = []     #5.할인율 저장
+loket2 = []        #6.로켓배송여부
+empty2 = []        #7.품절여부
+sat_count2=[]      #8.상품평 수 저장
+star2 = []        #9.평점
+
+img_src2=[]   # 이미지 URL 저장변수
+file_no = 0   # 이미지 파일 저장할 때 번호
+count = 1     # 총 게시물 건수 카운트 변수
+
+def scroll_down(driver):
+    driver.execute_script("window.scrollTo(0,document.body.scrollHeight);")
+    time.sleep(1)
+
+scroll_down(driver)   #현재화면의 가장 아래로 스크롤다운합니다
+
+for x in range(1,page_cnt + 1) :
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+
+    item_result = soup.find('ul','baby-product-list')
+    item_result2 = item_result.find_all('li')
+
+    for li in item_result2:
+
+                if cnt < count :
+                    break
+
+                # 제품 이미지 다운로드 하기
+                try :
+                    photo = li.find('dt','image').find('img')['src']
+                except AttributeError :
+                    continue
+
+                file_no += 1
+                full_photo = 'https:' + photo
+                urllib.request.urlretrieve(full_photo,str(file_no)+'.jpg')
+                time.sleep(0.5)
+
+                if cnt < file_no :
+                    break
+
+                #제품 내용 추출하기
+                f = open(ff_name, 'a',encoding='UTF-8')
+                f.write("-----------------------------------------------------"+"\n")
+                print("-" *70)
+
+                ranking = count
+                print("1.판매순위:",ranking)
+                f.write('1.판매순위:'+ str(ranking) + "\n")
+
+                try :
+                    t = li.find('div',class_='name').get_text().replace("\n","")
+                except AttributeError :
+                    title = '제품소개가 없습니다'
+                    print(title.replace("\n",""))
+                    f.write('2.제품소개:'+ title + "\n")
+                else :
+                    title = t.replace("\n","").strip()
+                    print("2.제품소개:", title.replace("\n","").strip())                  
+                    f.write('2.제품소개:'+ title + "\n")
+
+                try :
+                    p_price = li.find('strong','price-value').get_text().replace("\n","")
+                except :
+                    p_price = '0'
+                    print("3. 현재 판매가격:", p_price.replace("\n",""))
+                    f.write('3.현재 판매가격:'+ p_price + "\n")
+                else :
+                    print("3.현재 판매가격:", p_price.replace("\n",""))
+                    f.write('3.현재 판매가격:'+ p_price + "\n")
+                
+                try :
+                    o_price = li.find('del','base-price').get_text().replace("\n","")
+                except :
+                    o_price = ''
+                    print("4. 판매가격:", o_price.replace("\n",""))
+                    f.write('4.원래 판매가격:'+ o_price + "\n")
+                else :
+                    print("4.판매가격:", o_price.replace("\n",""))
+                    f.write('4.판매가격:'+ o_price + "\n")
+                    
+                    
+                try :
+                    discount = li.find('span','discount-percentage').get_text().replace("\n","")
+                except  :
+                    discount = '0%'
+                    print("5.할인률:", discount)
+                    f.write('5.할인율:'+ discount + "\n")
+                else :
+                    print("5.할인률:", discount)
+                    f.write('5.할인율:'+ discount + "\n")
+
+                try :
+                    loket_1 = li.find('span','badge rocket')
+                    loket_2 = loket_1.find('img')['alt']
+                except  :
+                    loket_2=''
+                    print('6.로켓배송: ',loket_2)
+                    f.write('6.로켓배송:'+ loket_2 + "\n")
+                else :
+                    print('6.로켓배송:',loket_2)
+                    f.write('6.로켓배송:'+ loket_2 + "\n")
+                
+                
+                try :
+                    empty = li.find('div','out-of-stock').get_text().replace('\n', '')
+                except  :
+                    empty = ''
+                    print('7.품절: ',empty)
+                    f.write('7.품절:'+ empty + "\n")
+                else :
+                    print('7.품절:',empty)
+                    f.write('7.품절:'+ empty + "\n")
+                
+                try :
+                    sat_count_1 = li.find('span', class_='rating-total-count').get_text()
+                    sat_count_2 = sat_count_1.replace("(","").replace(")","")
+                except  :
+                    sat_count_2=''
+                    print('8.상품평 수: ',sat_count_2)
+                    f.write('8.상품평 수:'+ sat_count_2 + "\n")
+                else :
+                    print('8.상품평 수:',sat_count_2)
+                    f.write('8.상품평 수:'+ sat_count_2 + "\n")
+                
+                try :
+                    star = li.find('span', class_='star').get_text()
+                except  :
+                    star=''
+                    print('9.평점: ',star + '/ 5.0')
+                    f.write('9.평점:'+ star + '/ 5.0' +"\n")
+                else :
+                    print('9.평점:',star + '/ 5.0')
+                    f.write('9.평점:'+ star + '/ 5.0' + "\n")
+                
+
+                print("-" *70)
+
+                f.close( )             
+                time.sleep(0.5)
+
+                ranking2.append(ranking) # 판매 순위
+                title2.append(title.replace("\n","")) # 제품 정보
+                p_price2.append(p_price.replace("\n","")) # 현재 판매가
+                o_price2.append(o_price.replace("\n","")) # 원래 판매가
+                discount2.append(discount.replace("\n","")) # 할인율
+                loket2.append(loket_2.replace("\n","")) # 로켓배송여부
+                empty2.append(empty.replace("\n","")) # 품절여부
+                sat_count2.append(sat_count_2.replace("\n",""))# 상품평 수
+                star2.append(star.replace("\n","")) # 평점
+                
+                count += 1
+    x += 1                
+    driver.find_element_by_link_text('%s' %x).click() # 다음 페이지번호 클릭
+          
+#step 6. csv , xls 형태로 저장하기              
+co_best_seller = pd.DataFrame()
+co_best_seller['판매순위']=ranking2
+co_best_seller['제품소개']=pd.Series(title2)
+co_best_seller['현재 판매가']=pd.Series(p_price2)
+co_best_seller['원래 판매가']=pd.Series(o_price2)
+co_best_seller['할인율']=pd.Series(discount2)
+co_best_seller['로켓배송여부']=pd.Series(loket2)
+co_best_seller['품절여부']=pd.Series(empty2)
+co_best_seller['상품평수']=pd.Series(sat_count2)
+co_best_seller['평정']=pd.Series(star2)
+
+
+# csv 형태로 저장하기
+co_best_seller.to_csv(fc_name,encoding="utf-8-sig",index=True)
+
+# 엑셀 형태로 저장하기
+co_best_seller.to_excel(fx_name ,index=True)
+
+e_time = time.time( )
+t_time = e_time - s_time
+
+count -= 1
+print("\n")
+print("=" *80)
+print("1.요청된 총 %s 건의 리뷰 중에서 실제 크롤링 된 리뷰수는 %s 건입니다" %(cnt,count))
+print("2.총 소요시간은 %s 초 입니다 " %round(t_time,1))
+print("3.파일 저장 완료: txt 파일명 : %s " %ff_name)
+print("4.파일 저장 완료: csv 파일명 : %s " %fc_name)
+print("5.파일 저장 완료: xls 파일명 : %s " %fx_name)
+print("=" *80)
+
+#Step 7. xls 파일에 제품 이미지 삽입하기
+
+import win32com.client as win32   #pywin32 , pypiwin32 설치후 동작
+import win32api  #파이썬 프롬프트를 관리자 권한으로 실행해야 에러없음
+
+                
+excel = win32.gencache.EnsureDispatch('Excel.Application')
+wb = excel.Workbooks.Open(fx_name)
+sheet = wb.ActiveSheet
+sheet.Columns(3).ColumnWidth = 30   
+row_cnt = cnt+1
+sheet.Rows("2:%s" %row_cnt).RowHeight = 120   
+
+ws = wb.Sheets("Sheet1")
+col_name2=[]
+file_name2=[]
+
+for a in range(2,cnt+2) :
+    col_name='C'+str(a)
+    col_name2.append(col_name)
+
+for b in range(1,cnt+1) :
+    file_name=img_dir+'\\'+str(b)+'.jpg'
+    file_name2.append(file_name)
+      
+for i in range(0,cnt) :
+    rng = ws.Range(col_name2[i])
+    image = ws.Shapes.AddPicture(file_name2[i], False, True, rng.Left, rng.Top, 130, 100)
+    excel.Visible=True
+    excel.ActiveWorkbook.Save()
+
+driver.close( )
