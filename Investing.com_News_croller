@@ -141,7 +141,7 @@ while True :
 driver.close()
 print('finish')
 
-final = pd.DataFrame()  ###
+final = pd.DataFrame()
 final['번호']=num1
 final['제목']=subject1
 print(final)
