@@ -1,0 +1,135 @@
+#Step 1. 필요한 모듈과 라이브러리를 로딩합니다.
+
+from bs4 import BeautifulSoup
+from selenium import webdriver
+import time
+import sys
+import random
+from selenium.webdriver.common.keys import Keys
+
+#Step 2. 사용자에게 검색어 키워드를 입력 받습니다.
+
+query_txt = input('    크롤링할 키워드는 무엇입니까? (여러 개 입력 시 " , "로 구분해서 작성해주세요 EX_ 유신고등학교 , 장안고 , 매탄고등학교 ) : ')
+cnt = int(input('    크롤링 할 건수는 몇건입니까? : '))
+search_txt = query_txt.replace(' ', '').split(',')
+print('=' * 80)
+print("\n")
+
+print("    잠시만 기다려 주세요      ")
+print("\n")
+print('=' * 80)
+
+#Step 3. 크롬 드라이버를 사용해서 웹 브라우저를 실행합니다.
+
+path = "c:/temp/chromedriver.exe"
+driver = webdriver.Chrome(path)
+driver.set_page_load_timeout(20)
+    
+driver.get('https://www.instagram.com/')
+driver.maximize_window() # 화면 최대화
+
+time.sleep(random.randrange(2,5))  # 2 - 5 초 사이에 랜덤으로 시간 선택
+element = driver.find_element_by_xpath('//*[@id="loginForm"]/div/div[1]/div/label/input')
+element.send_keys('') # 아이디 입력(input으로 넣을수도 있음)
+time.sleep(1)
+element = driver.find_element_by_xpath('//*[@id="loginForm"]/div/div[2]/div/label/input')
+element.send_keys('') # 비밀번호 입력(input으로 넣을수도 있음)
+time.sleep(1)
+element.send_keys('\n')
+time.sleep(3)
+try :
+driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/div/div/button').click() # '나중에 하기' 클릭
+except :
+  print('아이디와 비밀번호를 확인하세요')
+else :
+  time.sleep(5)
+
+driver.find_element_by_xpath('/html/body/div[4]/div/div/div/div[3]/button[2]').click() # '나중에 하기' 클릭
+
+
+for rotation in range(len(search_txt)) :
+    driver.find_element_by_xpath('//*[@id="react-root"]/section/nav/div[2]/div/div/div[2]').click() # '검색' 클릭
+    element= driver.find_element_by_xpath('//*[@id="react-root"]/section/nav/div[2]/div/div/div[2]/input') #단어 검색
+    element.send_keys(search_txt[rotation])
+    time.sleep(2)
+
+    html = driver.page_source
+    soup1 = BeautifulSoup(html, 'html.parser')
+    content = soup1.select('div.fuqBx > a')
+
+    for i in range(len(content)) :
+        content1 = content[i].attrs['href'].split('/')
+        print(content1[-2])
+        if search_txt[rotation] == content1[-2] :
+            driver.find_element_by_xpath('/html/body/div[1]/section/nav/div[2]/div/div/div[2]/div[3]/div[2]/div/a[%s]' % (i + 1)).click()
+            break
+    time.sleep(3)
+
+    try :
+        driver.find_element_by_xpath('//*[@id="react-root"]/section/main/article/div[1]/div/div/div[1]/div[1]/a').click()   # 첫게시물 클릭
+    except :
+        pass
+    else :    
+        time.sleep(2)
+    old = 0
+    print('\n')
+    for count in range(cnt) :
+        if old == 15 :
+            break
+        print('%d번 째 작업 중' % (count+1))
+        time.sleep(2)
+
+        html = driver.page_source
+        soup = BeautifulSoup(html, 'html.parser')
+        time.sleep(random.randrange(1,2))
+
+        content = soup.select('div.k_Q0X > a > time')
+        try :
+            content1 = content[0].attrs['title'].split('년')
+        except :
+            pass
+        else :
+            print(content1)
+            if int(content1[0]) < 2020 :
+                print('2020년 이전 게시물이라 건너뜁니다.')
+                print('\n')
+                driver.find_element_by_link_text('다음').click()
+                old += 1
+                continue
+
+        content = soup.select('button')
+        print(content[1].get_text())
+
+        if content[1].get_text() == '팔로우' :
+            try :
+                driver.find_element_by_xpath('/html/body/div[5]/div[2]/div/article/header/div[2]/div[1]/div[2]/button').click() # 팔로우 클릭
+            except :
+                pass               
+        
+        time.sleep(random.randrange(1,2))
+        content1 = soup.select('div.QBdPU > span > svg')
+        print(content1[0].attrs['aria-label'])
+
+        if content1[0].attrs['aria-label'] == '좋아요' :
+            try :
+                driver.find_element_by_xpath('/html/body/div[5]/div[2]/div/article/div[3]/section[1]/span[1]/button').click() # 좋아요 클릭
+            except :
+                pass
+            else :
+                time.sleep(random.randrange(2,4))
+        print('\n')
+        
+        try :
+            driver.find_element_by_link_text('다음').click() # '다음' 클릭
+        except :
+            break
+    try :
+        driver.find_element_by_xpath('/html/body/div[5]/div[3]/button').click() # X 버튼
+    except :
+        print('문제가 발생했습니다.')
+        break
+    else :
+        time.sleep(1)
+        driver.set_page_load_timeout(20)
+print('작업을 마치고 종료합니다.')
+driver.close()
