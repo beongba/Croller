@@ -61,7 +61,7 @@ for rotation in range(len(search_txt)) :
         content1 = content[i].attrs['href'].split('/')
         print(content1[-2])
         if search_txt[rotation] == content1[-2] :
-            driver.find_element_by_xpath('/html/body/div[1]/section/nav/div[2]/div/div/div[2]/div[3]/div[2]/div/a[%s]' % (i + 1)).click()
+            driver.find_element_by_xpath('/html/body/div[1]/section/nav/div[2]/div/div/div[2]/div[4]/div/a[%s]' % (i + 1)).click()
             break
     time.sleep(3)
 
